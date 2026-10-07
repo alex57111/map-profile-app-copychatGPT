@@ -1,0 +1,32 @@
+name: sync-source-once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.event.head_commit.message != 'chore: sync source repository'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Copy source repository
+        run: |
+          git clone --depth 1 https://github.com/alex57111/map-profile-app-copy.git /tmp/source
+          rsync -a --exclude='.git/' /tmp/source/ ./
+          rm -rf /tmp/source
+
+      - name: Commit copied source
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: sync source repository" || exit 0
+          git push origin HEAD:main
