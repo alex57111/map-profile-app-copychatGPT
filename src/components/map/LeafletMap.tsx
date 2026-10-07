@@ -98,8 +98,6 @@ interface Props {
   mapRef?: React.MutableRefObject<L.Map | null>
 }
 
-const DEFAULT_CENTER: [number, number] = [55.7558, 37.6176]
-
 export function LeafletMap({
   position, events, onlineUsers, osmCameras = [],
   autoCenter, routes, activeRoute, destination, selecting,
@@ -134,7 +132,7 @@ export function LeafletMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
     const map = L.map(containerRef.current, {
-      center: DEFAULT_CENTER, zoom: 14,
+      center: [position!.lat, position!.lng], zoom: 14,
       zoomControl: false, attributionControl: false,
       minZoom: MAP_MIN_ZOOM, maxZoom: MAP_MAX_ZOOM,
     })
