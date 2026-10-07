@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { GPSEngine } from '../engines/gps'
 import { Sentry } from '../lib/sentry'
+import { isInsideTelegram, requestTelegramLocation } from '../lib/telegram'
 import type { GPSState, GPSPosition } from '../types/geo'
 
 const INITIAL_STATE: GPSState = { position: null, status: 'idle', error: null }
@@ -16,8 +17,25 @@ export function useGPS(): GPSState & { start: () => void; stop: () => void } {
   }, [])
 
   const start = useCallback(() => {
-    if (engineRef.current) return
+    if (engineRef.current || telegramTimerRef.current) return
     setState((s) => ({ ...s, status: 'acquiring', error: null }))
+
+    if (isInsideTelegram()) {
+      const poll = async () => {
+        const pos = await requestTelegramLocation()
+        if (!mountedRef.current) return
+        if (pos) {
+          setState({ position: pos, status: 'active', error: null })
+          telegramTimerRef.current = setTimeout(poll, 3_000)
+        } else {
+          setState((s) => ({ ...s, status: 'denied', error: 'Геолокация недоступна или доступ запрещён.' }))
+          telegramTimerRef.current = null
+        }
+      }
+      void poll()
+      return
+    }
+
     engineRef.current = new GPSEngine({
       onPosition: (pos: GPSPosition) => {
         if (!mountedRef.current) return
@@ -26,8 +44,6 @@ export function useGPS(): GPSState & { start: () => void; stop: () => void } {
       onError: (status, msg, code) => {
         if (!mountedRef.current) return
         setState((s) => ({ ...s, status, error: msg }))
-        // 'lost' (POSITION_UNAVAILABLE) — обычный кейс на въезде в тоннель/паркинг,
-        // не шлём в Sentry как ошибку, чтобы не засорять — остальное репортим.
         if (status !== 'lost') {
           Sentry.captureMessage(`GPS error: ${msg}`, {
             level: 'warning',
