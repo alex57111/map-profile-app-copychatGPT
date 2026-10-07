@@ -25,8 +25,7 @@ import type { RoadEvent, EventType } from "../types/event"
 import type { Coords } from "../types/geo"
 import type { AuthState } from "../types/user"
 import { Sentry } from "../lib/sentry"
-
-const DEFAULT_CENTER: Coords = { lat: 55.7558, lng: 37.6176 }
+import { closeTelegramWebApp } from "../lib/telegram"
 
 interface LocationScreenProps {
   // Статус анонимного входа из корневого AuthProvider (см. App.tsx) — пока
@@ -39,14 +38,25 @@ export function LocationScreen({ authStatus }: LocationScreenProps) {
   const gps = useGPS()
   const mapRef = useRef<L.Map | null>(null)
 
-  useEffect(() => {
-    gps.start()
-    return () => gps.stop()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const [permission, setPermission] = useState<"pending" | "requesting" | "granted" | "denied">("pending")
+  const mapCenterRef = useRef<Coords | null>(null)
+  const [mapCenter, setMapCenter] = useState<Coords | null>(null)
 
-  const mapCenterRef = useRef<Coords>(DEFAULT_CENTER)
-  const [mapCenter, setMapCenter] = useState<Coords>(DEFAULT_CENTER)
+  useEffect(() => {
+    if (gps.status === "active") setPermission("granted")
+    else if (permission === "requesting" && (gps.status === "denied" || gps.status === "error")) setPermission("denied")
+  }, [gps.status, permission])
+
+  const handleAllowLocation = useCallback(() => {
+    setPermission("requesting")
+    gps.start()
+  }, [gps.start])
+
+  const handleDenyLocation = useCallback(() => {
+    gps.stop()
+    setPermission("denied")
+    closeTelegramWebApp()
+  }, [gps.stop])
   const [zoom, setZoom] = useState(14)
 
   const { events, createEvent, voteOnEvent, confirmEventRelevant, creating } = useMapEvents(null)
@@ -175,9 +185,8 @@ export function LocationScreen({ authStatus }: LocationScreenProps) {
 
   const handleSearchSelect = useCallback(async (coords: Coords) => {
     setDestination(coords)
-    const from = gps.position
-      ? { lat: gps.position.lat, lng: gps.position.lng }
-      : mapCenterRef.current
+    if (!gps.position) return
+    const from = { lat: gps.position.lat, lng: gps.position.lng }
     await buildRoute(from, coords)
     setAutoCenter(false)
   }, [gps.position, buildRoute])
@@ -198,6 +207,34 @@ export function LocationScreen({ authStatus }: LocationScreenProps) {
   const wrapStyle: CSSProperties = {
     position: "fixed", top: 0, left: 0, right: 0,
     bottom: TAB_HEIGHT, backgroundColor: COLORS.bg, overflow: "hidden",
+  }
+
+  if (!gps.position) {
+    return (
+      <div style={{ position: "fixed", inset: 0, backgroundColor: COLORS.bg, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ width: "min(420px, 100%)", borderRadius: 24, padding: 24, background: "#1A1A1A", border: "1px solid #2E2E2E", textAlign: "center" }}>
+          {permission === "pending" && <>
+            <div style={{ fontSize: 42, marginBottom: 14 }}>📍</div>
+            <div style={{ fontSize: 21, fontWeight: 700, marginBottom: 10 }}>Разрешить доступ к геолокации?</div>
+            <div style={{ color: "#A8A8A8", fontSize: 14, lineHeight: 1.5, marginBottom: 22 }}>Чтобы показать карту вокруг вас и реальные события поблизости, приложению нужны ваши координаты.</div>
+            <button onClick={handleAllowLocation} style={{ width: "100%", padding: "13px 16px", border: 0, borderRadius: 14, background: "#F97316", color: "#111", fontWeight: 700, fontSize: 16 }}>Да, разрешить</button>
+            <button onClick={handleDenyLocation} style={{ width: "100%", marginTop: 10, padding: "12px 16px", border: "1px solid #444", borderRadius: 14, background: "transparent", color: "#DDD", fontWeight: 600, fontSize: 15 }}>Нет</button>
+          </>}
+          {permission === "requesting" && <>
+            <div style={{ fontSize: 42, marginBottom: 14 }}>🛰️</div>
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Получаю координаты…</div>
+            <div style={{ color: "#A8A8A8", fontSize: 14 }}>Подтвердите доступ в системном окне, если оно появилось.</div>
+          </>}
+          {permission === "denied" && <>
+            <div style={{ fontSize: 42, marginBottom: 14 }}>📍</div>
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>Геолокация недоступна</div>
+            <div style={{ color: "#A8A8A8", fontSize: 14, lineHeight: 1.5, marginBottom: 22 }}>Без координат карта и события поблизости не запускаются.</div>
+            <button onClick={handleAllowLocation} style={{ width: "100%", padding: "13px 16px", border: 0, borderRadius: 14, background: "#F97316", color: "#111", fontWeight: 700, fontSize: 16 }}>Попробовать снова</button>
+            <button onClick={() => closeTelegramWebApp()} style={{ width: "100%", marginTop: 10, padding: "12px 16px", border: "1px solid #444", borderRadius: 14, background: "transparent", color: "#DDD", fontWeight: 600, fontSize: 15 }}>Закрыть</button>
+          </>}
+        </div>
+      </div>
+    )
   }
 
   return (
