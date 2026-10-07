@@ -9,6 +9,7 @@ const INITIAL_STATE: GPSState = { position: null, status: 'idle', error: null }
 export function useGPS(): GPSState & { start: () => void; stop: () => void } {
   const [state, setState] = useState<GPSState>(INITIAL_STATE)
   const engineRef = useRef<GPSEngine | null>(null)
+  const telegramTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -60,6 +61,8 @@ export function useGPS(): GPSState & { start: () => void; stop: () => void } {
   const stop = useCallback(() => {
     engineRef.current?.stop()
     engineRef.current = null
+    if (telegramTimerRef.current) clearTimeout(telegramTimerRef.current)
+    telegramTimerRef.current = null
     setState(INITIAL_STATE)
   }, [])
 
