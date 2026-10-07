@@ -1,12 +1,5 @@
 name: pages-staging
 
-# Staging-деплой для теста Telegram Mini App (заход 23/24, см. AGENT_LOG.md).
-# Отдельно от продакшен-канала на Cloudflare Pages (тот настроен на
-# оригинальном map-profile-app через Git-интеграцию Cloudflare, сюда не
-# переносился). --base нужен из-за поддиректории GitHub Pages
-# (https://<owner>.github.io/<repo>/) — vite.config.ts НЕ менялся, флаг
-# передаётся только здесь, в CI.
-
 on:
   push:
     branches: [main]
@@ -35,7 +28,7 @@ jobs:
       - run: npm ci
       - run: npx vite build --base=/${{ github.event.repository.name }}/
         env:
-          VITE_USE_SUPABASE: ${{ vars.VITE_USE_SUPABASE || 'false' }}
+          VITE_USE_SUPABASE: 'true'
           VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
