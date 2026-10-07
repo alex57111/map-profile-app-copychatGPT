@@ -21,7 +21,7 @@ jobs:
       - name: Copy source repository
         run: |
           git clone --depth 1 https://github.com/alex57111/map-profile-app-copy.git /tmp/source
-          rsync -a --exclude='.git/' /tmp/source/ ./
+          rsync -a --exclude='.git/' --exclude='.github/workflows/*' /tmp/source/ ./
           rm -rf /tmp/source
 
       - name: Commit copied source
