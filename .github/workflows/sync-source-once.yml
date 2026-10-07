@@ -31,3 +31,5 @@ jobs:
           git add -A
           git commit -m "chore: sync source repository" || exit 0
           git push origin HEAD:main
+
+# sync branch bootstrap
