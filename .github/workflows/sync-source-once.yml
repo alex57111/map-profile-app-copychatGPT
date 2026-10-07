@@ -1,7 +1,8 @@
 name: sync-source-once
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize]
     branches: [main]
 
 permissions:
@@ -9,7 +10,7 @@ permissions:
 
 jobs:
   sync:
-    if: github.event.head_commit.message != 'chore: sync source repository'
+    if: github.event.pull_request.head.ref == 'sync-source' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Checkout target
